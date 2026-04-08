@@ -1,18 +1,18 @@
 /* ============================================================
-   DJ Drop – Frontend Logic
+   DJ Drop – Frontend Logic (V2 - Direct Download)
    Webhook: https://fosssss.app.n8n.cloud/webhook/dj-download
    ============================================================ */
 
 const WEBHOOK_URL = 'https://fosssss.app.n8n.cloud/webhook/dj-download';
 
 const PLATFORM_META = {
-  tidal:      { label: 'Tidal',       emoji: '🎵', cls: 'p1', note: 'Priority 1 · Native FLAC' },
-  qobuz:      { label: 'Qobuz',       emoji: '🎶', cls: 'p1', note: 'Priority 1 · Native FLAC' },
-  deezer:     { label: 'Deezer',      emoji: '🎸', cls: 'p2', note: 'Priority 2 · FLAC via Lucida' },
-  spotify:    { label: 'Spotify',     emoji: '🎤', cls: 'p3', note: 'Priority 3 · 320kbps Match' },
-  apple:      { label: 'Apple Music', emoji: '🍎', cls: 'p3', note: 'Priority 3 · 320kbps Match' },
-  soundcloud: { label: 'SoundCloud',  emoji: '☁️', cls: 'p3', note: 'Priority 3 · 320kbps Match' },
-  unknown:    { label: 'Unknown',     emoji: '🎧', cls: 'p3', note: 'Best available quality' },
+  tidal:      { label: 'Tidal',       emoji: '🎵', cls: 'p1', quality: 'FLAC (Lossless)' },
+  qobuz:      { label: 'Qobuz',       emoji: '🎶', cls: 'p1', quality: 'FLAC (Lossless)' },
+  deezer:     { label: 'Deezer',      emoji: '🎸', cls: 'p2', quality: 'FLAC (Lossless)' },
+  spotify:    { label: 'Spotify',     emoji: '🎤', cls: 'p3', quality: '320kbps MP3' },
+  apple:      { label: 'Apple Music', emoji: '🍎', cls: 'p3', quality: '320kbps MP3' },
+  soundcloud: { label: 'SoundCloud',  emoji: '☁️', cls: 'p3', quality: '320kbps MP3' },
+  unknown:    { label: 'Unknown',     emoji: '🎧', cls: 'p3', quality: 'High Quality' },
 };
 
 function detectPlatform(url) {
@@ -34,39 +34,47 @@ function showResult(html, type = '') {
 function showLoading(platform) {
   const meta = PLATFORM_META[platform] || PLATFORM_META.unknown;
   showResult(`
-    <div class="result-title"><span class="spinner"></span>Processing your request…</div>
+    <div class="result-title"><span class="spinner"></span>Processing…</div>
     <div class="result-body">
-      <span class="platform-tag ${meta.cls}">${meta.emoji} ${meta.label} · ${meta.note}</span>
-      <p style="margin-top:0.5rem;color:var(--text-muted)">Contacting Lucida and verifying quality. This takes a few seconds…</p>
+      <span class="platform-tag ${meta.cls}">${meta.emoji} ${meta.label} Detected</span>
+      <p style="margin-top:0.5rem;color:var(--text-muted)">Fetching best quality audio. Please wait...</p>
     </div>
   `, 'loading');
 }
 
 function showSuccess(platform, data) {
   const meta = PLATFORM_META[platform] || PLATFORM_META.unknown;
-
-  // Try to pull a download URL from known Lucida response shapes
-  const downloadUrl = data?.result?.url || data?.result?.download_url || data?.result?.link || null;
-  const trackTitle  = data?.result?.title  || data?.result?.name  || 'Your Track';
-  const trackArtist = data?.result?.artist || data?.result?.by    || '';
-
-  const linkHtml = downloadUrl
-    ? `<p style="margin-top:0.75rem"><a href="${downloadUrl}" target="_blank" rel="noopener noreferrer">⬇️ Download ${trackArtist ? trackArtist + ' – ' : ''}${trackTitle}</a></p>`
-    : `<p style="margin-top:0.75rem;color:var(--text-muted)">✅ Request processed. Check your Telegram for the download link, or try the link above.</p>`;
+  const downloadUrl = data.download_url;
+  const track = data.metadata || {};
+  
+  const title = track.title || 'Track';
+  const artist = track.artist || 'Unknown Artist';
 
   showResult(`
-    <div class="result-title">✅ Download Ready</div>
+    <div class="result-title">✅ Track Found</div>
     <div class="result-body">
-      <span class="platform-tag ${meta.cls}">${meta.emoji} ${meta.label} · ${meta.note}</span>
-      ${linkHtml}
-      <p style="margin-top:0.6rem;font-size:0.8rem;color:var(--text-muted)">Quality: <strong>${meta.cls === 'p1' || meta.cls === 'p2' ? 'FLAC (Lossless)' : '320kbps MP3'}</strong></p>
+      <div style="margin-bottom: 1rem;">
+        <span class="platform-tag ${meta.cls}">${meta.emoji} ${meta.label}</span>
+        <span class="platform-tag p1" style="margin-left:5px">🎧 ${meta.quality}</span>
+      </div>
+      
+      <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.2rem;">${title}</div>
+      <div style="color: var(--text-muted); margin-bottom: 1.5rem;">${artist}</div>
+      
+      <a href="${downloadUrl}" class="download-btn-big" target="_blank" download>
+        Download Now (${meta.cls === 'p3' ? '320k' : 'FLAC'})
+      </a>
+      
+      <p style="margin-top: 1rem; font-size: 0.75rem; color: var(--text-muted);">
+        The file will open in a new tab. Right-click and "Save As" if it starts playing.
+      </p>
     </div>
   `, 'success');
 }
 
 function showError(message) {
   showResult(`
-    <div class="result-title">❌ Something went wrong</div>
+    <div class="result-title">❌ Error</div>
     <div class="result-body" style="color:var(--text-muted)">${message}</div>
   `, 'error');
 }
@@ -78,13 +86,6 @@ async function fetchTrack() {
 
   if (!url) {
     input.focus();
-    input.style.borderColor = 'var(--error)';
-    setTimeout(() => input.style.borderColor = '', 1500);
-    return;
-  }
-
-  if (!url.startsWith('http')) {
-    showError('Please paste a valid music link starting with <strong>https://</strong>');
     return;
   }
 
@@ -100,23 +101,21 @@ async function fetchTrack() {
       body: JSON.stringify({ url }),
     });
 
-    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-
     const data = await res.json();
-    showSuccess(data.platform || platform, data);
-  } catch (err) {
-    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-      showError('Could not reach the download server. Check your internet connection and try again.');
+    
+    if (data.status === 'ok' && data.download_url) {
+      showSuccess(data.platform || platform, data);
     } else {
-      showError(`Error: ${err.message}. Please try again or try a different link.`);
+      throw new Error('Could not find the track. Try a Tidal or Qobuz link for better results.');
     }
+  } catch (err) {
+    showError(err.message);
   } finally {
     btn.disabled = false;
     btn.querySelector('.btn-text').textContent = 'Fetch Track';
   }
 }
 
-// Allow pressing Enter in the input
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('music-url').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') fetchTrack();
