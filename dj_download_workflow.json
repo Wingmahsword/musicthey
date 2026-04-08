@@ -60,15 +60,35 @@
       }
     },
     {
+      "id": "node-telegram",
+      "name": "Telegram Notification",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [920, 150],
+      "parameters": {
+        "chatId": "-10023456789",
+        "text": "🎧 *New Download Ready!*\n\n*Track:* {{ $json.result.metadata.artist }} - {{ $json.result.metadata.title }}\n*Platform:* {{ $('Parse Link & Detect Platform').first().json.platform.toUpperCase() }}\n*Quality:* {{ $('Parse Link & Detect Platform').first().json.quality }}\n\n🔗 [Download Link]({{ $json.result.url }})",
+        "operation": "sendMessage",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "8605470253:AAEJK-gpzQnPN92Py5W4gV_Q72rit6PFtoA"
+        }
+      }
+    },
+    {
       "id": "node-respond",
       "name": "Respond to Caller",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "onError": "continueRegularOutput",
-      "position": [920, 300],
+      "position": [920, 450],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', platform: $('Parse Link & Detect Platform').first().json.platform, priority: $('Parse Link & Detect Platform').first().json.priority, result: $json }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', platform: $('Parse Link & Detect Platform').first().json.platform, download_url: $json.result.url }) }}",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -86,7 +106,10 @@
       "main": [[{ "node": "Fetch via Lucida", "type": "main", "index": 0 }]]
     },
     "Fetch via Lucida": {
-      "main": [[{ "node": "Respond to Caller", "type": "main", "index": 0 }]]
+      "main": [
+        [{ "node": "Telegram Notification", "type": "main", "index": 0 }],
+        [{ "node": "Respond to Caller", "type": "main", "index": 0 }]
+      ]
     }
   },
   "active": false,
