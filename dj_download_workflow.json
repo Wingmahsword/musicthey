@@ -1,12 +1,11 @@
 {
-  "name": "🎧 DJ Download Bot - Hi-Res + YouTube",
+  "name": "🎧 DJ Drop – Bulletproof Hi-Res Download",
   "nodes": [
     {
       "id": "node-webhook",
       "name": "Receive Link",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "onError": "continueRegularOutput",
       "position": [200, 300],
       "parameters": {
         "httpMethod": "POST",
@@ -19,26 +18,26 @@
     },
     {
       "id": "node-parse",
-      "name": "Parse Link & Detect Platform",
+      "name": "Extract & Detect Platform",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "onError": "continueRegularOutput",
       "position": [440, 300],
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const body = $input.first().json;\nconst url = (body.url || body.link || '').trim();\nif (!url) throw new Error('No URL provided');\n\nlet platform = 'unknown';\nif      (url.includes('tidal.com'))   platform = 'tidal';\nelse if (url.includes('qobuz.com'))   platform = 'qobuz';\nelse if (url.includes('deezer.com'))  platform = 'deezer';\nelse if (url.includes('spotify.com')) platform = 'spotify';\nelse if (url.includes('apple.com'))   platform = 'apple';\nelse if (url.includes('soundcloud'))  platform = 'soundcloud';\nelse if (url.includes('youtube.com') || url.includes('youtu.be')) platform = 'youtube';\n\nreturn [{ json: { url, platform, quality: (platform === 'tidal' || platform === 'qobuz') ? 'FLAC' : '320kbps' } }];"
+        "jsCode": "// Safely extract URL from body regardless of how n8n parses it\nconst item = $input.first();\nconst body = item.json;\n\n// Handle both direct body and nested body shapes\nconst url = (\n  body.url ||\n  body.link ||\n  body.body?.url ||\n  ''\n).toString().trim();\n\nif (!url) {\n  throw new Error('No URL found in request body. Send: {\"url\": \"YOUR_LINK\"}');\n}\n\nlet platform = 'unknown';\nif (url.includes('tidal.com'))                             platform = 'tidal';\nelse if (url.includes('qobuz.com'))                        platform = 'qobuz';\nelse if (url.includes('deezer.com'))                       platform = 'deezer';\nelse if (url.includes('spotify.com'))                      platform = 'spotify';\nelse if (url.includes('apple.com'))                        platform = 'apple';\nelse if (url.includes('soundcloud.com'))                   platform = 'soundcloud';\nelse if (url.includes('youtube.com') || url.includes('youtu.be')) platform = 'youtube';\n\nconst isLossless = ['tidal','qobuz','deezer'].includes(platform);\n\nreturn [{\n  json: {\n    url,\n    platform,\n    quality: isLossless ? 'FLAC' : '320kbps'\n  }\n}];"
       }
     },
     {
-      "id": "node-fetch",
+      "id": "node-lucida",
       "name": "Fetch via Lucida",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "onError": "continueRegularOutput",
+      "position": [680, 300],
       "retryOnFail": true,
       "maxTries": 3,
-      "position": [680, 300],
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
         "url": "https://lucida.to/api/load",
@@ -46,29 +45,52 @@
         "contentType": "json",
         "bodyParameters": {
           "parameters": [
-            { "name": "url", "value": "={{ $json.url }}" },
+            { "name": "url",     "value": "={{ $json.url }}" },
             { "name": "country", "value": "US" }
           ]
         },
-        "options": { "response": { "response": { "responseFormat": "json" } } }
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "User-Agent", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
+            { "name": "Accept",     "value": "application/json" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": { "responseFormat": "json" }
+          }
+        }
+      }
+    },
+    {
+      "id": "node-build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Get data from both upstream nodes\nconst lucidaRaw = $input.first().json;\nconst parsed    = $('Extract & Detect Platform').first().json;\n\n// Dig through every known Lucida response shape\nconst downloadUrl =\n  lucidaRaw?.url ||\n  lucidaRaw?.result?.url ||\n  lucidaRaw?.result?.download_url ||\n  lucidaRaw?.download_url ||\n  lucidaRaw?.data?.url ||\n  null;\n\nconst meta =\n  lucidaRaw?.result?.metadata ||\n  lucidaRaw?.metadata ||\n  lucidaRaw?.data?.metadata ||\n  {};\n\nconst title  = meta.title  || lucidaRaw?.title  || lucidaRaw?.result?.title  || 'Unknown Title';\nconst artist = meta.artist || lucidaRaw?.artist || lucidaRaw?.result?.artist || '';\n\nif (!downloadUrl) {\n  return [{\n    json: {\n      status: 'error',\n      message: 'Lucida could not find a download link for this URL.',\n      platform: parsed.platform,\n      quality:  parsed.quality,\n      raw: lucidaRaw  // helps debug in n8n\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    status:       'ok',\n    platform:     parsed.platform,\n    quality:      parsed.quality,\n    download_url: downloadUrl,\n    metadata: { title, artist }\n  }\n}];"
       }
     },
     {
       "id": "node-respond",
-      "name": "Respond to Caller",
+      "name": "Send Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [920, 300],
+      "position": [1160, 300],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', platform: $('Parse Link & Detect Platform').first().json.platform, download_url: $json.result.url, metadata: $json.result.metadata || { title: $json.result.title, artist: $json.result.artist } }) }}",
+        "responseBody": "={{ JSON.stringify($json) }}",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
             "entries": [
-              { "name": "Content-Type", "value": "application/json" },
-              { "name": "Access-Control-Allow-Origin", "value": "*" },
-              { "name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+              { "name": "Content-Type",                 "value": "application/json" },
+              { "name": "Access-Control-Allow-Origin",  "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
               { "name": "Access-Control-Allow-Headers", "value": "Content-Type" }
             ]
           }
@@ -77,9 +99,18 @@
     }
   ],
   "connections": {
-    "Receive Link": { "main": [[{ "node": "Parse Link & Detect Platform", "type": "main", "index": 0 }]] },
-    "Parse Link & Detect Platform": { "main": [[{ "node": "Fetch via Lucida", "type": "main", "index": 0 }]] },
-    "Fetch via Lucida": { "main": [[{ "node": "Respond to Caller", "type": "main", "index": 0 }]] }
+    "Receive Link": {
+      "main": [[{ "node": "Extract & Detect Platform", "type": "main", "index": 0 }]]
+    },
+    "Extract & Detect Platform": {
+      "main": [[{ "node": "Fetch via Lucida", "type": "main", "index": 0 }]]
+    },
+    "Fetch via Lucida": {
+      "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]]
+    },
+    "Build Response": {
+      "main": [[{ "node": "Send Response", "type": "main", "index": 0 }]]
+    }
   },
   "active": false,
   "settings": { "executionOrder": "v1" }
