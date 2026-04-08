@@ -12,6 +12,7 @@ const PLATFORM_META = {
   spotify:    { label: 'Spotify',     emoji: '🎤', cls: 'p3', quality: '320kbps MP3' },
   apple:      { label: 'Apple Music', emoji: '🍎', cls: 'p3', quality: '320kbps MP3' },
   soundcloud: { label: 'SoundCloud',  emoji: '☁️', cls: 'p3', quality: '320kbps MP3' },
+  youtube:    { label: 'YouTube',     emoji: '📺', cls: 'p3', quality: '320kbps MP3' },
   unknown:    { label: 'Source',      emoji: '🎧', cls: 'p3', quality: 'Best Available' },
 };
 
@@ -22,6 +23,7 @@ function detectPlatform(url) {
   if (url.includes('spotify.com'))    return 'spotify';
   if (url.includes('apple.com'))      return 'apple';
   if (url.includes('soundcloud.com')) return 'soundcloud';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
   return 'unknown';
 }
 

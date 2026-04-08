@@ -1,5 +1,5 @@
 {
-  "name": "🎧 DJ Download Bot - Direct Hi-Res",
+  "name": "🎧 DJ Download Bot - Hi-Res + YouTube",
   "nodes": [
     {
       "id": "node-webhook",
@@ -11,7 +11,10 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "dj-download",
-        "responseMode": "responseNode"
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
       }
     },
     {
@@ -24,7 +27,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "const body = $input.first().json;\nconst url = (body.url || body.link || '').trim();\nif (!url) throw new Error('No URL provided');\n\nlet platform = 'unknown';\nif      (url.includes('tidal.com'))   platform = 'tidal';\nelse if (url.includes('qobuz.com'))   platform = 'qobuz';\nelse if (url.includes('deezer.com'))  platform = 'deezer';\nelse if (url.includes('spotify.com')) platform = 'spotify';\nelse if (url.includes('apple.com'))   platform = 'apple';\nelse if (url.includes('soundcloud'))  platform = 'soundcloud';\n\nreturn [{ json: { url, platform, quality: 'FLAC' } }];"
+        "jsCode": "const body = $input.first().json;\nconst url = (body.url || body.link || '').trim();\nif (!url) throw new Error('No URL provided');\n\nlet platform = 'unknown';\nif      (url.includes('tidal.com'))   platform = 'tidal';\nelse if (url.includes('qobuz.com'))   platform = 'qobuz';\nelse if (url.includes('deezer.com'))  platform = 'deezer';\nelse if (url.includes('spotify.com')) platform = 'spotify';\nelse if (url.includes('apple.com'))   platform = 'apple';\nelse if (url.includes('soundcloud'))  platform = 'soundcloud';\nelse if (url.includes('youtube.com') || url.includes('youtu.be')) platform = 'youtube';\n\nreturn [{ json: { url, platform, quality: (platform === 'tidal' || platform === 'qobuz') ? 'FLAC' : '320kbps' } }];"
       }
     },
     {
@@ -58,11 +61,16 @@
       "position": [920, 300],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: 'ok', platform: $('Parse Link & Detect Platform').first().json.platform, download_url: $json.result.url, metadata: $json.result.metadata }) }}",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', platform: $('Parse Link & Detect Platform').first().json.platform, download_url: $json.result.url, metadata: $json.result.metadata || { title: $json.result.title, artist: $json.result.artist } }) }}",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
-            "entries": [{ "name": "Content-Type", "value": "application/json" }]
+            "entries": [
+              { "name": "Content-Type", "value": "application/json" },
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" }
+            ]
           }
         }
       }
