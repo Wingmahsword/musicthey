@@ -1,0 +1,94 @@
+{
+  "name": "🎧 DJ Download Bot - Tidal & Qobuz Priority",
+  "nodes": [
+    {
+      "id": "node-webhook",
+      "name": "Receive Link",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "onError": "continueRegularOutput",
+      "position": [200, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dj-download",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "id": "node-parse",
+      "name": "Parse Link & Detect Platform",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueRegularOutput",
+      "position": [440, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const body = $input.first().json;\nconst url = (body.url || body.link || '').trim();\nif (!url) throw new Error('No URL provided. Send {\"url\": \"YOUR_LINK\"}');\n\nlet platform = 'unknown';\nlet priority = 3;\n\n// Priority 1 — Lossless native (FLAC guaranteed)\nif      (url.includes('tidal.com'))   { platform = 'tidal';      priority = 1; }\nelse if (url.includes('qobuz.com'))   { platform = 'qobuz';      priority = 1; }\n// Priority 2 — FLAC available via Lucida\nelse if (url.includes('deezer.com'))  { platform = 'deezer';     priority = 2; }\n// Priority 3 — Converted (Lucida cross-platform fetch)\nelse if (url.includes('spotify.com')) { platform = 'spotify';    priority = 3; }\nelse if (url.includes('soundcloud'))  { platform = 'soundcloud'; priority = 3; }\nelse if (url.includes('apple'))       { platform = 'apple';      priority = 3; }\n\nreturn [{ json: { url, platform, priority, quality: 'FLAC', ts: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "node-fetch",
+      "name": "Fetch via Lucida",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [680, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://lucida.to/api/load",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "url",           "value": "={{ $json.url }}" },
+            { "name": "country",       "value": "US" },
+            { "name": "downscaleCover","value": false }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "User-Agent", "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+          ]
+        },
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      }
+    },
+    {
+      "id": "node-respond",
+      "name": "Respond to Caller",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "onError": "continueRegularOutput",
+      "position": [920, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', platform: $('Parse Link & Detect Platform').first().json.platform, priority: $('Parse Link & Detect Platform').first().json.priority, result: $json }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [{ "name": "Content-Type", "value": "application/json" }]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receive Link": {
+      "main": [[{ "node": "Parse Link & Detect Platform", "type": "main", "index": 0 }]]
+    },
+    "Parse Link & Detect Platform": {
+      "main": [[{ "node": "Fetch via Lucida", "type": "main", "index": 0 }]]
+    },
+    "Fetch via Lucida": {
+      "main": [[{ "node": "Respond to Caller", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
