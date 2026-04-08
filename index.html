@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DJ Drop – Hi-Res Music Download Portal</title>
+  <meta name="description" content="Download FLAC & 320kbps tracks from Tidal, Qobuz, Deezer, Spotify and more. Built for DJs." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Animated background blobs -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+
+  <main class="container">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎧</span>
+        <span class="logo-text">DJ<strong>Drop</strong></span>
+      </div>
+      <div class="badge">Hi-Res · FLAC · 320k</div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+      <h1 class="hero-title">Drop a Link.<br />Get the <span class="gradient-text">Hi-Res</span> Track.</h1>
+      <p class="hero-sub">Paste any music link from Tidal, Qobuz, Deezer, Spotify, Apple Music or SoundCloud. We'll fetch the highest quality available.</p>
+    </section>
+
+    <!-- Download Card -->
+    <section class="card" id="download-card">
+      <div class="platform-pills">
+        <span class="pill priority">🎵 Tidal</span>
+        <span class="pill priority">🎶 Qobuz</span>
+        <span class="pill">🎸 Deezer</span>
+        <span class="pill">🎤 Spotify</span>
+        <span class="pill">🍎 Apple</span>
+        <span class="pill">☁️ SoundCloud</span>
+      </div>
+
+      <div class="input-group">
+        <input
+          id="music-url"
+          type="url"
+          placeholder="Paste your music link here..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="fetch-btn" onclick="fetchTrack()">
+          <span class="btn-text">Fetch Track</span>
+          <span class="btn-icon">↓</span>
+        </button>
+      </div>
+
+      <p class="privacy-note">🔒 No account needed. Links are processed securely and discarded.</p>
+    </section>
+
+    <!-- Status / Result Area -->
+    <section id="result-area" class="result-area hidden">
+      <!-- Populated by JS -->
+    </section>
+
+    <!-- Platform Priority Info -->
+    <section class="info-grid">
+      <div class="info-card">
+        <div class="info-icon">⭐</div>
+        <h3>Priority 1 — Lossless FLAC</h3>
+        <p>Tidal & Qobuz links are fetched natively in lossless FLAC. DJ-grade quality, no compromises.</p>
+      </div>
+      <div class="info-card">
+        <div class="info-icon">🎶</div>
+        <h3>Priority 2 — FLAC via Convert</h3>
+        <p>Deezer links are converted to FLAC using cross-platform lookup. Same quality, different source.</p>
+      </div>
+      <div class="info-card">
+        <div class="info-icon">🔄</div>
+        <h3>Priority 3 — 320kbps</h3>
+        <p>Spotify, Apple Music & SoundCloud links are matched and downloaded at 320kbps MP3.</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>Built for DJs. Powered by <strong>n8n</strong> + <strong>Lucida</strong>. For personal use only.</p>
+    </footer>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
